@@ -23,12 +23,6 @@ databaseName = args.output_database
 famFile = args.fam_file
 cores = args.num_cores
 
-# Download necessary requirments
-os.system("cd / && git clone https://github.com/quinlan-lab/vcf2db && cd vcf2db \
-&& conda install -y -c conda-forge snappy && conda install -y -c conda-forge python-snappy \
-&& conda install -y -c bioconda cyvcf2 && conda install -y -c bioconda peddy && pip install -r requirements.txt \
-&& cd /proj")
-
 # Load annotated file into a GEMINI database
 if famFile != None:
     os.system(f"python /vcf2db/vcf2db.py {inputFile} \
