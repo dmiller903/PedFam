@@ -104,6 +104,7 @@ if not os.path.exists(geminiTsv):
         {inputFile} \
         > {tempTsv}')
     
+    # Create a dictionary of all the chromosome positions in the gemini tsv file
     posDict = {}
     with open(tempTsv) as inputFile:
         for line in inputFile:
@@ -119,7 +120,7 @@ if not os.path.exists(geminiTsv):
                     posDict[chrom] = {pos}
                 elif chrom in posDict:
                     posDict[chrom].add(pos)
-
+    # Use the posDict to determine the cadd and maf values for each chromosomal position
     caddMafDict = {}
     with gzip.open(caddMafFile, 'rt') as inputFile:
         for line in inputFile:
@@ -139,7 +140,7 @@ if not os.path.exists(geminiTsv):
                 alt = lineList[altIndex]
                 maf = lineList[mafIndex]
                 cadd = lineList[caddIndex]
-                if pos in posDict[chrom]:
+                if chrom in posDict and pos in posDict[chrom]:
                     if chrom not in caddMafDict:
                         caddMafDict[chrom] = {pos: [[ref, alt, maf, cadd]]}
                     elif chrom in caddMafDict and pos not in caddMafDict[chrom]:
@@ -147,6 +148,7 @@ if not os.path.exists(geminiTsv):
                     elif chrom in caddMafDict and pos in caddMafDict[chrom]:
                         caddMafDict[chrom][pos].append([ref, alt, maf, cadd])
 
+    #Create a new gemini file that includes the maf and cadd values present in the caddMafDict
     with open(tempTsv) as inputFile, open(geminiTsv, "w") as geminiFile:
         for line in inputFile:
             if line.startswith("chrom"):
@@ -218,20 +220,6 @@ with open(geminiTsv) as geminiFile:
     for line in geminiFile:
         lineList = line.rstrip("\n").split("\t")
         start, gene, ref, alt, impact, cadd, maf, lof, exonic = getLineInfo(lineList)
-        
-        if cadd != "None" and maf != "None":
-            if lof == "1" and float(cadd) >= inputCadd and float(maf) <= inputMaf:
-                iterateThroughSamples()
-        elif cadd == "None" and maf == "None":
-            if lof == "1":
-                iterateThroughSamples()
-        elif cadd != "None" and maf == "None":
-            if lof == "1" and float(cadd) >= inputCadd:
-                iterateThroughSamples()
-        elif cadd == "None" and maf != "None":
-            if lof == "1" and float(maf) <= inputMaf:
-                iterateThroughSamples()
-        """
         if cadd != "None" and maf != "None":
             if ((impact == "HIGH" or lof == "1") or (impact == "MED" and float(cadd) >= inputCadd)) and float(maf) <= inputMaf:
                 iterateThroughSamples()
@@ -244,7 +232,7 @@ with open(geminiTsv) as geminiFile:
         elif cadd == "None" and maf != "None":
             if (impact == "HIGH" or lof == "1") and float(maf) <= inputMaf:
                 iterateThroughSamples()
-        """
+
 print("Sample Dictionaries Created.")
 
 """
@@ -291,8 +279,8 @@ else:
                 if parentGenotype1 == "1|1" or parentGenotype2 == "1|1":
                     continue
                 if "0|1" in genotypes and "1|0" in genotypes and genotype in ["1|0", "0|1"] and gene not in chPositionDict[patient]:
-                        chPositionDict[patient][gene] = [position]
-                        chGenotypeDict[patient][gene] = [genotype]
+                    chPositionDict[patient][gene] = [position]
+                    chGenotypeDict[patient][gene] = [genotype]
                 elif "0|1" in genotypes and "1|0" in genotypes and genotype in ["1|0", "0|1"] and gene in chPositionDict[patient]:
                     chPositionDict[patient][gene].append(position)
                     chGenotypeDict[patient][gene].append(genotype)
@@ -303,7 +291,7 @@ else:
             for i, genotype in enumerate(genotypes):
                 positionList = samplePositions[sample][gene]
                 position = positionList[i]
-                #Ensure that the patient is compound heterozygotic in each gene
+                #Check for CH variants in parents
                 if "0|1" in genotypes and "1|0" in genotypes and genotype in ["1|0", "0|1"] and gene not in chPositionDict[sample]:
                     chPositionDict[sample][gene] = [position]
                     chGenotypeDict[sample][gene] = [genotype]
@@ -328,6 +316,7 @@ with open(geminiTsv) as geminiFile, open(outputFile, "w") as outputFile:
             for line in geminiFile:
                 lineList = line.rstrip("\n").split("\t")
                 start, gene, ref, alt, impact, cadd, maf, lof, exonic = getLineInfo(lineList)
+                # Only write CH variants that are unique to the sample and not those that are in common with either parent
                 for sampleIndex in sampleIndexes:
                     sample = headerList[sampleIndex]
                     parent1 = familyDict[sample][0]
