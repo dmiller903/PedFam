@@ -1,10 +1,12 @@
 import glob
 import gzip
 import concurrent.futures
+import argparse
+from sys import argv
 
-fileList = []
-for file in glob.glob("*/outs/phased_variants.vcf.gz"):
-    fileList.append(file)
+#Create variables of each argument from argv
+fileList = argv[1:-1]
+outputPath = argv[-1].rstrip("/")
 
 def getStats(file):
     lineCount = 0
@@ -12,8 +14,8 @@ def getStats(file):
     phased = 0
     numMulti = 0
     fileName = file.split("/")[-1]
-    sample = file.split("/")[0]
-    outputName = f"phased_files/{sample}_{fileName}"
+    sample = file.split("/")[-3]
+    outputName = f"{outputPath}/{sample}_{fileName}"
     with gzip.open(file, 'rt') as inputFile, gzip.open(outputName, 'wb') as outputFile:
         for line in inputFile:
             if line.startswith("##"):
