@@ -24,7 +24,7 @@ families, provide a .fam file in the phased_files_path for each of the different
 parser.add_argument('--concat_files', help='If multiple chromosome files need to concatenated into a single file, \
 please indicate by "y"', default="y")
 parser.add_argument('--merge_files', help='If multiple sample files need to be merged after chromosomes are combined, \
-please indicate by "y"', default="n")
+use "both" if VCF is of SNPs, or use "none" if VCF has structural variants', default="n")
 
 args = parser.parse_args()
 
@@ -97,9 +97,13 @@ else:
         concatFiles.append(file)
 
 # Merge all phased, concatenated, files into one
-if mergeFiles == "y":
+if mergeFiles == "both":
     concatFilesString = " ".join(concatFiles)
     os.system(f"bcftools merge -m both {concatFilesString} -o {outputFile}.gz -O z")
+    os.system(f"tabix -fp vcf {outputFile}.gz")
+elif mergeFiles == "none":
+    concatFilesString = " ".join(concatFiles)
+    os.system(f"bcftools merge -m none {concatFilesString} -o {outputFile}.gz -O z")
     os.system(f"tabix -fp vcf {outputFile}.gz")
 elif mergeFiles == "n":
     os.system(f"mv {tempOutput} {outputFile}.gz")
