@@ -41,12 +41,13 @@ def getUniqueVariants(file):
         for line in dataFile:
             lineList = line.rstrip("\n").split("\t")
             sample = lineList[sampleIndex]
-            gene = lineList[geneIndex]
-            disease = sampleDisease[sample]
-            if sample not in sampleGenes and gene != "None":
-                sampleGenes[sample] = {gene}
-            elif sample in sampleGenes and gene != "None":
-                sampleGenes[sample].add(gene)
+            if sample in sampleDisease:
+                gene = lineList[geneIndex]
+                disease = sampleDisease[sample]
+                if sample not in sampleGenes and gene != "None":
+                    sampleGenes[sample] = {gene}
+                elif sample in sampleGenes and gene != "None":
+                    sampleGenes[sample].add(gene)
 
     diseaseGenes = {}
     for sample, genes in sampleGenes.items():
@@ -77,11 +78,12 @@ with open(familyFile) as familyFile:
     for line in familyFile:
         line = line.replace("-", "_")
         lineList = line.rstrip("\n").split()
-        sampleDisease[lineList[1]] = lineList[0]
         if lineList[-1] is "2" and lineList[0] not in familyDict:
             familyDict[f"{lineList[0]}"] = [f"{lineList[1]}"]
+            sampleDisease[lineList[1]] = lineList[0]
         elif lineList[-1] is "2" and lineList[0] in familyDict:
             familyDict[f"{lineList[0]}"].append(f"{lineList[1]}")
+            sampleDisease[lineList[1]] = lineList[0]
 
 # Write header to output file
 with open(outputFile, 'w') as output:
@@ -89,5 +91,4 @@ with open(outputFile, 'w') as output:
 
 # Use getUniqueVariants to write unique genes to output file
 for file in fileList:
-    print(file)
     getUniqueVariants(file)
