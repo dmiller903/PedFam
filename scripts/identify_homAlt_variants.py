@@ -2,6 +2,7 @@ import os
 import time
 import argparse
 import concurrent.futures
+import gzip
 
 #Keep track of when the script began
 startTime = time.time()
@@ -18,6 +19,8 @@ parser.add_argument('--cadd', help='Indicate cadd cut-off value.', default='15')
 parser.add_argument('--af', help='Indicate allele frequency cut-off value.', default='0.01')
 parser.add_argument('--fam_file', help='If family relationships are known among the samples, use a fam file to help \
 with the CH identification process.')
+parser.add_argument('--impact_filter_only', help='"y" will only filter based on "HIGH" impact without regard to allele \
+frequency or cadd scores', default="n")
 
 args = parser.parse_args()
 
@@ -30,6 +33,7 @@ inputAF = args.af
 if inputAF != "None":
     inputAF = float(args.af)
 familyFile = args.fam_file
+impactFilterOnly = args.impact_filter_only
 
 #Function to get convert sample genotype from alpha to numeric
 def getNumericGenotype(genotype, ref, alt):
@@ -237,19 +241,24 @@ with open(geminiTsv) as geminiFile:
             af = af_1k
         else:
             af = "None"
-        if cadd != "None" and af != "None":
-            if ((impact == "HIGH" or lof == "1") or (impact == "MED" and float(cadd) >= inputCadd)) and float(af) <= inputAF:
+        if cadd != "None" and af != "None" and impactFilterOnly == "n":
+            if float(cadd) >= inputCadd and float(af) <= inputAF and impact == "HIGH":
                 iterateThroughSamples()
-        elif cadd == "None" and af == "None":
-            if impact == "HIGH" or lof == "1":
-                iterateThroughSamples()
-        elif cadd != "None" and af == "None":
-            if (impact == "HIGH" or lof == "1") or (impact == "MED" and float(cadd) >= inputCadd):
-                iterateThroughSamples()
-        elif cadd == "None" and af != "None":
-            if (impact == "HIGH" or lof == "1") and float(af) <= inputAF:
-                iterateThroughSamples()
-                iterateThroughSamples()
+        elif impactFilterOnly == "y" and impact == "HIGH" and gene != "None":
+            iterateThroughSamples()
+        #if cadd != "None" and af != "None":
+            #if ((impact == "HIGH" or lof == "1") or (impact == "MED" and float(cadd) >= inputCadd)) and float(af) <= inputAF:
+                #iterateThroughSamples()
+        #elif cadd == "None" and af == "None":
+            #if impact == "HIGH" or lof == "1":
+                #iterateThroughSamples()
+        #elif cadd != "None" and af == "None":
+            #if (impact == "HIGH" or lof == "1") or (impact == "MED" and float(cadd) >= inputCadd):
+                #iterateThroughSamples()
+        #elif cadd == "None" and af != "None":
+            #if (impact == "HIGH" or lof == "1") and float(af) <= inputAF:
+                #iterateThroughSamples()
+                #iterateThroughSamples()
 print("Sample Dictionaries Created.")
 
 """
