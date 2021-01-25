@@ -16,6 +16,7 @@ parser.add_argument('input_file_deNovo', help='deNovo tsv file that is the outpu
 parser.add_argument('input_file_het', help='het tsv file that is the output of "add_GDI_and_gene_lengths.py"')
 parser.add_argument('output_file', help='Name of output file')
 parser.add_argument('fam_file', help='A .fam file is used to determine relationships among samples')
+parser.add_argument('unique_value', help='Number of siblings that can be in common. If 1, only one sample can have the gene. If 2, 2 siblings can have the same gene with a variant, etc.', default=1)
 
 args = parser.parse_args()
 
@@ -27,6 +28,7 @@ inputFile_het = args.input_file_het
 outputFile = args.output_file
 familyFile = args.fam_file
 fileList = [inputFile_CH, inputFile_homAlt, inputFile_deNovo, inputFile_het]
+uniqueValue = int(args.unique_value)
 
 # Function to find and output unique genes
 def getUniqueVariants(file):
@@ -34,21 +36,38 @@ def getUniqueVariants(file):
     variantType = variantType.rstrip("\n").split("_")[1]
 
     sampleGenes = {}
+    gdiDict = {}
     with open(file) as dataFile:
         headerList = dataFile.readline().rstrip("\n").split("\t")
         sampleIndex = headerList.index("sample")
         geneIndex = headerList.index("gene")
+        damageIndex = headerList.index("GDI-Phred")
         for line in dataFile:
             lineList = line.rstrip("\n").split("\t")
             sample = lineList[sampleIndex]
             if sample in sampleDisease:
                 gene = lineList[geneIndex]
                 disease = sampleDisease[sample]
+                gdi = lineList[damageIndex]
                 if sample not in sampleGenes and gene != "None":
                     sampleGenes[sample] = {gene}
                 elif sample in sampleGenes and gene != "None":
                     sampleGenes[sample].add(gene)
-
+                if gdi != "NA":
+                    gdi = "-" + gdi
+                else:
+                    gdi = "NA"
+                gdiDict[gene] = gdi
+                """
+                if gdi != "NA":
+                    gdi = float(gdi)
+                else:
+                    gdi = 1
+                if sample not in sampleGenes and gene != "None" and gdi <= 13.84:
+                    sampleGenes[sample] = {gene}
+                elif sample in sampleGenes and gene != "None" and gdi <= 13.84:
+                    sampleGenes[sample].add(gene)
+                """
     diseaseGenes = {}
     for sample, genes in sampleGenes.items():
         disease = sampleDisease[sample]
@@ -62,14 +81,15 @@ def getUniqueVariants(file):
         disease = sampleDisease[sample]
         uniqueGenes[sample] = []
         for gene in genes:
-            if diseaseGenes[disease].count(gene) == 1:
+            if diseaseGenes[disease].count(gene) <= uniqueValue:
                 uniqueGenes[sample].append(gene)
     with open(outputFile, 'a') as output:
         for sample, genes in sorted(uniqueGenes.items()):
             disease = sampleDisease[sample]
             if len(genes) > 0:
                 for gene in genes:
-                    output.write(f"{sample}\t{disease}\t{gene}\t{variantType}\n")
+                    gdi = gdiDict[gene]
+                    output.write(f"{sample}\t{disease}\t{gene}\t{variantType}\t{gdi}\n")
 
 # Create a dictionary of family members
 familyDict = {}
@@ -87,7 +107,7 @@ with open(familyFile) as familyFile:
 
 # Write header to output file
 with open(outputFile, 'w') as output:
-    output.write(f"sample\tdisease\tunique_genes\tvariant_type\n")
+    output.write(f"sample\tdisease\tunique_genes\tvariant_type\tgdi\n")
 
 # Use getUniqueVariants to write unique genes to output file
 for file in fileList:
