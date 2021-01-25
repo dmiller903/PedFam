@@ -37,8 +37,13 @@ impactFilterOnly = args.impact_filter_only
 
 #Function to get convert sample genotype from alpha to numeric
 def getNumericGenotype(genotype, ref, alt):
-    if "|" in genotype and "." not in genotype:
-        genotypeList = genotype.split("|")
+    if "." not in genotype:
+        if "|" in genotype:
+            genotypeList = genotype.split("|")
+            genotypeSymbol = "|"
+        elif "/" in genotype:
+            genotypeList = genotype.split("/")
+            genotypeSymbol = "/"
         firstAllele = ""
         secondAllele = ""
         if genotypeList[0] == ref:
@@ -53,7 +58,7 @@ def getNumericGenotype(genotype, ref, alt):
             secondAllele = "1"
         else:
             secondAllele = "."
-        newGenotype = f"{firstAllele}|{secondAllele}"
+        newGenotype = f"{firstAllele}{genotypeSymbol}{secondAllele}"
         return(newGenotype)
     else:
         return(".|.")
@@ -241,10 +246,10 @@ with open(geminiTsv) as geminiFile:
             af = af_1k
         else:
             af = "None"
-        if cadd != "None" and af != "None" and impactFilterOnly == "n":
+        if cadd != "None" and af != "None" and impactFilterOnly == "n" and exonic == "1":
             if float(cadd) >= inputCadd and float(af) <= inputAF and impact == "HIGH":
                 iterateThroughSamples()
-        elif impactFilterOnly == "y" and impact == "HIGH" and gene != "None":
+        elif impactFilterOnly == "y" and impact == "HIGH" and gene != "None" and exonic == "1":
             iterateThroughSamples()
         #if cadd != "None" and af != "None":
             #if ((impact == "HIGH" or lof == "1") or (impact == "MED" and float(cadd) >= inputCadd)) and float(af) <= inputAF:
@@ -277,10 +282,10 @@ if familyFile is None:
                 positionList = samplePositions[sample][gene]
                 position = positionList[i]
                 #Ensure that the sample is heterozygotic in each gene
-                if genotype in ["0|1", "1|0"] and gene not in hetPositionDict[sample]:
+                if genotype in ["0|1", "1|0", "0/1", "1/0"] and gene not in hetPositionDict[sample]:
                     hetPositionDict[sample][gene] = [position]
                     hetGenotypeDict[sample][gene] = [genotype]
-                elif genotype in ["0|1", "1|0"] and gene in hetPositionDict[sample]:
+                elif genotype in ["0|1", "1|0", "0/1", "1/0"] and gene in hetPositionDict[sample]:
                     hetPositionDict[sample][gene].append(position)
                     hetGenotypeDict[sample][gene].append(genotype)
 else:
@@ -292,10 +297,10 @@ else:
                 positionList = samplePositions[sample][gene]
                 position = positionList[i]
                 #Ensure that the sample is heterozygotic in each gene
-                if genotype in ["0|1", "1|0"] and gene not in hetPositionDict[sample]:
+                if genotype in ["0|1", "1|0", "0/1", "1/0"] and gene not in hetPositionDict[sample]:
                     hetPositionDict[sample][gene] = [position]
                     hetGenotypeDict[sample][gene] = [genotype]
-                elif genotype in ["0|1", "1|0"] and gene in hetPositionDict[sample]:
+                elif genotype in ["0|1", "1|0", "0/1", "1/0"] and gene in hetPositionDict[sample]:
                     hetPositionDict[sample][gene].append(position)
                     hetGenotypeDict[sample][gene].append(genotype)
     """ This is the original that eliminates het variants in either parent
@@ -343,7 +348,7 @@ with open(geminiTsv) as geminiFile, open(outputFile, "w") as outputFile:
             if sample in hetPositionDict and gene in hetPositionDict[sample] and start in hetPositionDict[sample][gene]:
                 genotype = lineList[sampleIndex]
                 numericGenotype = getNumericGenotype(genotype, ref, alt)
-                if "." not in numericGenotype and numericGenotype in ["0|1", "1|0"]:
+                if "." not in numericGenotype and numericGenotype in ["0|1", "1|0", "0/1", "1/0"]:
                     columnInfo = lineList[0:15]
                     columnStr = "\t".join(columnInfo)
                     newLine = f"{columnStr}\t{numericGenotype}\t{sample.replace('gts.', '')}\n"

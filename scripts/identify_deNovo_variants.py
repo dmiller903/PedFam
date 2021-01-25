@@ -36,8 +36,13 @@ impactFilterOnly = args.impact_filter_only
 
 #Function to get convert sample genotype from alpha to numeric
 def getNumericGenotype(genotype, ref, alt):
-    if "|" in genotype and "." not in genotype:
-        genotypeList = genotype.split("|")
+    if "." not in genotype:
+        if "|" in genotype:
+            genotypeList = genotype.split("|")
+            genotypeSymbol = "|"
+        elif "/" in genotype:
+            genotypeList = genotype.split("/")
+            genotypeSymbol = "/"
         firstAllele = ""
         secondAllele = ""
         if genotypeList[0] == ref:
@@ -52,7 +57,7 @@ def getNumericGenotype(genotype, ref, alt):
             secondAllele = "1"
         else:
             secondAllele = "."
-        newGenotype = f"{firstAllele}|{secondAllele}"
+        newGenotype = f"{firstAllele}{genotypeSymbol}{secondAllele}"
         return(newGenotype)
     else:
         return(".|.")
@@ -238,10 +243,10 @@ with open(geminiTsv) as geminiFile:
             af = af_1k
         else:
             af = "None"
-        if cadd != "None" and af != "None" and impactFilterOnly == "n":
+        if cadd != "None" and af != "None" and impactFilterOnly == "n" and exonic == "1":
             if float(cadd) >= inputCadd and float(af) <= inputAF and impact == "HIGH":
                 iterateThroughSamples()
-        elif impactFilterOnly == "y" and impact == "HIGH" and gene != "None":
+        elif impactFilterOnly == "y" and impact == "HIGH" and gene != "None" and exonic == "1":
             iterateThroughSamples()
         #if cadd != "None" and af != "None":
             #if ((impact == "HIGH" or lof == "1") or (impact == "MED" and float(cadd) >= inputCadd)) and float(af) <= inputAF:
@@ -283,10 +288,10 @@ for patient in patientList:
                     parentPosIndex = samplePositions[parent2][gene].index(position)
                     parentGenotype2 = sampleGenotype[parent2][gene][parentPosIndex]
                 if "1" not in parentGenotype1 and "1" not in parentGenotype2:
-                    if genotype in ["1|0", "0|1", "1|1"] and gene not in deNovoPositionDict[patient]:
+                    if genotype in ["1|0", "0|1", "1|1", "1/0", "0/1", "1/1"] and gene not in deNovoPositionDict[patient]:
                         deNovoPositionDict[patient][gene] = [position]
                         deNovoGenotypeDict[patient][gene] = [genotype]
-                    elif genotype in ["1|0", "0|1", "1|1"] and gene in deNovoPositionDict[patient]:
+                    elif genotype in ["1|0", "0|1", "1|1", "1/0", "0/1", "1/1"] and gene in deNovoPositionDict[patient]:
                         deNovoPositionDict[patient][gene].append(position)
                         deNovoGenotypeDict[patient][gene].append(genotype)
 print("de Novo variant dictionaries created.")
@@ -313,7 +318,7 @@ with open(geminiTsv) as geminiFile, open(outputFile, "w") as outputFile:
             if gene in deNovoPositionDict[sample] and start in deNovoPositionDict[sample][gene]:
                 genotype = lineList[sampleIndex]
                 numericGenotype = getNumericGenotype(genotype, ref, alt)
-                if "." not in numericGenotype and numericGenotype in ["1|0", "0|1", "1|1"]:
+                if "." not in numericGenotype and numericGenotype in ["1|0", "0|1", "1|1", "1/0", "0/1", "1/1"]:
                     columnInfo = lineList[0:15]
                     columnStr = "\t".join(columnInfo)
                     newLine = f"{columnStr}\t{numericGenotype}\t{sample.replace('gts.', '')}\n"

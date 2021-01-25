@@ -245,10 +245,10 @@ with open(geminiTsv) as geminiFile:
             af = af_1k
         else:
             af = "None"
-        if cadd != "None" and af != "None" and impactFilterOnly == "n":
+        if cadd != "None" and af != "None" and impactFilterOnly == "n" and exonic == "1":
             if float(cadd) >= inputCadd and float(af) <= 1 and impact == "HIGH":
                 iterateThroughSamples()
-        elif impactFilterOnly == "y" and impact == "HIGH" and gene != "None":
+        elif impactFilterOnly == "y" and impact == "HIGH" and gene != "None" and exonic == "1":
             iterateThroughSamples()
 
 print("Sample Dictionaries Created.")
