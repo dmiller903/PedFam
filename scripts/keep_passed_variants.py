@@ -48,10 +48,10 @@ def getStats(file):
                     lineCount += 1
 
         summary.write(f"{sample}\t{passed}\t{phased}\t{lineCount}\n")                
-        print(f"{passed} out of {lineCount} variants passed ({(passed / lineCount) * 100}%)\n\
+        print(f"\n{passed} out of {lineCount} variants passed ({(passed / lineCount) * 100}%)\n\
         for {file}. Of those that passed, {phased} were phased ({(phased / passed) * 100}%).\n\
-        There were {numMulti} that passed but were not included in outputfile and were not\n\
-        included in the number of passed variants.")
+        There were {numMulti} multiallelic sites that passed but were not included in outputfile and were not\n\
+        included in the number of passed variants.\n")
 
 with open(summaryFile, "w") as summary:
     summary.write(f"sample\tnum_passed\tnum_passed_phased\ttotal_variants\n")
