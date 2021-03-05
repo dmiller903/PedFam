@@ -45,20 +45,38 @@ def getNumericGenotype(genotype, ref, alt):
             genotypeSymbol = "/"
         firstAllele = ""
         secondAllele = ""
-        if genotypeList[0] == ref:
-            firstAllele = "0"
-        elif genotypeList[0] == alt:
-            firstAllele = "1"
+        if "," not in alt:
+            if genotypeList[0] == ref:
+                firstAllele = "0"
+            elif genotypeList[0] == alt:
+                firstAllele = "1"
+            else:
+                firstAllele = "."
+            if genotypeList[1] == ref:
+                secondAllele = "0"
+            elif genotypeList[1] == alt:
+                secondAllele = "1"
+            else:
+                secondAllele = "."
+            newGenotype = f"{firstAllele}{genotypeSymbol}{secondAllele}"
+            return(newGenotype)
         else:
-            firstAllele = "."
-        if genotypeList[1] == ref:
-            secondAllele = "0"
-        elif genotypeList[1] == alt:
-            secondAllele = "1"
-        else:
-            secondAllele = "."
-        newGenotype = f"{firstAllele}{genotypeSymbol}{secondAllele}"
-        return(newGenotype)
+            altList = alt.split(",")
+            for i, alt in enumerate(altList):
+                if genotypeList[0] == ref:
+                    firstAllele = "0"
+                elif genotypeList[0] == alt:
+                    firstAllele = str(i + 1)
+                else:
+                    firstAllele = "."
+                if genotypeList[1] == ref:
+                    secondAllele = "0"
+                elif genotypeList[1] == alt:
+                    secondAllele = str(i + 1)
+                else:
+                    secondAllele = "."
+                newGenotype = f"{firstAllele}{genotypeSymbol}{secondAllele}"
+                return(newGenotype)
     else:
         return(".|.")
 
@@ -248,18 +266,6 @@ with open(geminiTsv) as geminiFile:
                 iterateThroughSamples()
         elif impactFilterOnly == "y" and impact == "HIGH" and gene != "None" and exonic == "1":
             iterateThroughSamples()
-        #if cadd != "None" and af != "None":
-            #if ((impact == "HIGH" or lof == "1") or (impact == "MED" and float(cadd) >= inputCadd)) and float(af) <= inputAF:
-                #iterateThroughSamples()
-        #elif cadd == "None" and af == "None":
-            #if impact == "HIGH" or lof == "1":
-                #iterateThroughSamples()
-        #elif cadd != "None" and af == "None":
-            #if (impact == "HIGH" or lof == "1") or (impact == "MED" and float(cadd) >= inputCadd):
-                #iterateThroughSamples()
-        #elif cadd == "None" and af != "None":
-            #if (impact == "HIGH" or lof == "1") and float(af) <= inputAF:
-                #iterateThroughSamples()
 print("Sample Dictionaries Created.")
 
 """
@@ -276,22 +282,24 @@ for patient in patientList:
     if patient in sampleGenotype:
         for gene, genotypes in sampleGenotype[patient].items():
             for i, genotype in enumerate(genotypes):
+                allele1 = genotype[0]
+                allele2 = genotype[-1]
                 positionList = samplePositions[patient][gene]
                 position = positionList[i]
                 #This part helps eliminate genotypes being added to the deNovo list where either parent is homozygous recessive
-                parentGenotype1 = ""
-                parentGenotype2 = ""
+                parentGenotype1 = "./."
+                parentGenotype2 = "./."
                 if gene in samplePositions[parent1] and position in samplePositions[parent1][gene]:
                     parentPosIndex = samplePositions[parent1][gene].index(position)
                     parentGenotype1 = sampleGenotype[parent1][gene][parentPosIndex]
                 if gene in samplePositions[parent2] and position in samplePositions[parent2][gene]:
                     parentPosIndex = samplePositions[parent2][gene].index(position)
-                    parentGenotype2 = sampleGenotype[parent2][gene][parentPosIndex]
-                if "1" not in parentGenotype1 and "1" not in parentGenotype2:
-                    if genotype in ["1|0", "0|1", "1|1", "1/0", "0/1", "1/1"] and gene not in deNovoPositionDict[patient]:
+                    parentGenotype2 = sampleGenotype[parent2][gene][parentPosIndex]   
+                if (allele1 != "0" and allele1 not in parentGenotype1 and allele1 not in parentGenotype2) or (allele2 != "0" and allele2 not in parentGenotype1 and allele2 not in parentGenotype2):
+                    if gene not in deNovoPositionDict[patient]:
                         deNovoPositionDict[patient][gene] = [position]
                         deNovoGenotypeDict[patient][gene] = [genotype]
-                    elif genotype in ["1|0", "0|1", "1|1", "1/0", "0/1", "1/1"] and gene in deNovoPositionDict[patient]:
+                    elif gene in deNovoPositionDict[patient]:
                         deNovoPositionDict[patient][gene].append(position)
                         deNovoGenotypeDict[patient][gene].append(genotype)
 print("de Novo variant dictionaries created.")
@@ -318,7 +326,7 @@ with open(geminiTsv) as geminiFile, open(outputFile, "w") as outputFile:
             if gene in deNovoPositionDict[sample] and start in deNovoPositionDict[sample][gene]:
                 genotype = lineList[sampleIndex]
                 numericGenotype = getNumericGenotype(genotype, ref, alt)
-                if "." not in numericGenotype and numericGenotype in ["1|0", "0|1", "1|1", "1/0", "0/1", "1/1"]:
+                if "." not in numericGenotype:
                     columnInfo = lineList[0:15]
                     columnStr = "\t".join(columnInfo)
                     newLine = f"{columnStr}\t{numericGenotype}\t{sample.replace('gts.', '')}\n"
