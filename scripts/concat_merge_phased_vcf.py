@@ -101,6 +101,10 @@ if mergeFiles == "both":
     concatFilesString = " ".join(concatFiles)
     os.system(f"bcftools merge -m both {concatFilesString} -o {outputFile}.gz -O z")
     os.system(f"tabix -fp vcf {outputFile}.gz")
+elif mergeFiles == "all":
+    concatFilesString = " ".join(concatFiles)
+    os.system(f"bcftools merge -m all {concatFilesString} -o {outputFile}.gz -O z")
+    os.system(f"tabix -fp vcf {outputFile}.gz")
 elif mergeFiles == "none":
     concatFilesString = " ".join(concatFiles)
     os.system(f"bcftools merge -m none {concatFilesString} -o {outputFile}.gz -O z")
