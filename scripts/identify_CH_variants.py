@@ -37,24 +37,47 @@ impactFilterOnly = args.impact_filter_only
 
 #Function to get convert sample genotype from alpha to numeric
 def getNumericGenotype(genotype, ref, alt):
-    if "|" in genotype and "." not in genotype:
-        genotypeList = genotype.split("|")
+    if "." not in genotype:
+        if "|" in genotype:
+            genotypeList = genotype.split("|")
+            genotypeSymbol = "|"
+        elif "/" in genotype:
+            genotypeList = genotype.split("/")
+            genotypeSymbol = "/"
         firstAllele = ""
         secondAllele = ""
-        if genotypeList[0] == ref:
-            firstAllele = "0"
-        elif genotypeList[0] == alt:
-            firstAllele = "1"
+        if "," not in alt:
+            if genotypeList[0] == ref:
+                firstAllele = "0"
+            elif genotypeList[0] == alt:
+                firstAllele = "1"
+            else:
+                firstAllele = "."
+            if genotypeList[1] == ref:
+                secondAllele = "0"
+            elif genotypeList[1] == alt:
+                secondAllele = "1"
+            else:
+                secondAllele = "."
+            newGenotype = f"{firstAllele}{genotypeSymbol}{secondAllele}"
+            return(newGenotype)
         else:
-            firstAllele = "."
-        if genotypeList[1] == ref:
-            secondAllele = "0"
-        elif genotypeList[1] == alt:
-            secondAllele = "1"
-        else:
-            secondAllele = "."
-        newGenotype = f"{firstAllele}|{secondAllele}"
-        return(newGenotype)
+            altList = alt.split(",")
+            for i, alt in enumerate(altList):
+                if genotypeList[0] == ref:
+                    firstAllele = "0"
+                elif genotypeList[0] == alt:
+                    firstAllele = str(i + 1)
+                else:
+                    firstAllele = "."
+                if genotypeList[1] == ref:
+                    secondAllele = "0"
+                elif genotypeList[1] == alt:
+                    secondAllele = str(i + 1)
+                else:
+                    secondAllele = "."
+                newGenotype = f"{firstAllele}{genotypeSymbol}{secondAllele}"
+                return(newGenotype)
     else:
         return(".|.")
 
@@ -199,22 +222,22 @@ if not os.path.exists(geminiTsv):
                         geminiFile.write(f"{newLine}\n")
 
 # Use fam file to create a list of samples, list of parents, and a parent dictionary where each key is a parent ID and value is sample ID
-if familyFile is not None:
-    parentDict = {}
-    parentList = []
-    patientList = []
-    familyDict = {}
-    with open(familyFile) as familyFile:
-        for line in familyFile:
-            line = line.replace("-", "_")
-            lineList = line.rstrip("\n").split("\t")
-            if lineList[-1] is "2":
-                parentDict[f"gts.{lineList[2]}"] = f"gts.{lineList[1]}"
-                parentDict[f"gts.{lineList[3]}"] = f"gts.{lineList[1]}"
-                patientList.append(f"gts.{lineList[1]}")
-                familyDict[f"gts.{lineList[1]}"] = [f"gts.{lineList[2]}", f"gts.{lineList[3]}"]
-            else:
-                parentList.append(f"gts.{lineList[1]}")
+
+parentDict = {}
+parentList = []
+patientList = []
+familyDict = {}
+with open(familyFile) as familyFile:
+    for line in familyFile:
+        line = line.replace("-", "_")
+        lineList = line.rstrip("\n").split("\t")
+        if lineList[-1] is "2":
+            parentDict[f"gts.{lineList[2]}"] = f"gts.{lineList[1]}"
+            parentDict[f"gts.{lineList[3]}"] = f"gts.{lineList[1]}"
+            patientList.append(f"gts.{lineList[1]}")
+            familyDict[f"gts.{lineList[1]}"] = [f"gts.{lineList[2]}", f"gts.{lineList[3]}"]
+        else:
+            parentList.append(f"gts.{lineList[1]}")
 
 """
 Iterate through inputFile in order to create two dictionaries: sampleGenotype and samplePositions. The key of 
@@ -261,77 +284,56 @@ a dictionary where the key is a gene and the value is a list of genotypes (or po
 chPositionDict = {}
 chGenotypeDict = {}
 chFreqDict = {}
-if familyFile is None:
-    for sample in samples:
-        chPositionDict[sample] = {}
-        chGenotypeDict[sample] = {}
-        chFreqDict[sample] = {}
-        for gene, genotypes in sampleGenotype[sample].items():
-            for i, genotype in enumerate(genotypes):
-                positionList = samplePositions[sample][gene]
-                position = positionList[i]
-                freqList = sampleFreqs[sample][gene]
-                freq = freqList[i]
-                #Ensure that the patient is compound heterozygotic in each gene
-                if "0|1" in genotypes and "1|0" in genotypes and genotype in ["1|0", "0|1"] and gene not in chPositionDict[sample]:
-                    chPositionDict[sample][gene] = [position]
-                    chGenotypeDict[sample][gene] = [genotype]
-                    chFreqDict[sample][gene] = [freq]
-                elif "0|1" in genotypes and "1|0" in genotypes and genotype in ["1|0", "0|1"] and gene in chPositionDict[sample]:
-                    chPositionDict[sample][gene].append(position)
-                    chGenotypeDict[sample][gene].append(genotype)
-                    chFreqDict[sample][gene].append(freq)
-else:
-    for patient in patientList:
-        chPositionDict[patient] = {}
-        chGenotypeDict[patient] = {}
-        chFreqDict[patient] = {}
-        parent1 = familyDict[patient][0]
-        parent2 = familyDict[patient][1]
-        for gene, genotypes in sampleGenotype[patient].items():
-            for i, genotype in enumerate(genotypes):
-                positionList = samplePositions[patient][gene]
-                position = positionList[i]
-                freqList = sampleFreqs[patient][gene]
-                freq = freqList[i]
-                #This part helps eliminate genotypes being added to the CH list where either parent is homozygous recessive
-                parentGenotype1 = ""
-                parentGenotype2 = ""
-                if gene in samplePositions[parent1] and position in samplePositions[parent1][gene]:
-                    parentPosIndex = samplePositions[parent1][gene].index(position)
-                    parentGenotype1 = sampleGenotype[parent1][gene][parentPosIndex]
-                if gene in samplePositions[parent2] and position in samplePositions[parent2][gene]:
-                    parentPosIndex = samplePositions[parent2][gene].index(position)
-                    parentGenotype2 = sampleGenotype[parent2][gene][parentPosIndex]
-                if parentGenotype1 == "1|1" or parentGenotype2 == "1|1":
-                    continue
-                if "0|1" in genotypes and "1|0" in genotypes and genotype in ["1|0", "0|1"] and gene not in chPositionDict[patient]:
-                    chPositionDict[patient][gene] = [position]
-                    chGenotypeDict[patient][gene] = [genotype]
-                    chFreqDict[patient][gene] = [freq]
-                elif "0|1" in genotypes and "1|0" in genotypes and genotype in ["1|0", "0|1"] and gene in chPositionDict[patient]:
-                    chPositionDict[patient][gene].append(position)
-                    chGenotypeDict[patient][gene].append(genotype)
-                    chFreqDict[patient][gene].append(freq)
-    for sample in parentList:
-        chPositionDict[sample] = {}
-        chGenotypeDict[sample] = {}
-        chFreqDict[sample] = {}
-        for gene, genotypes in sampleGenotype[sample].items():
-            for i, genotype in enumerate(genotypes):
-                positionList = samplePositions[sample][gene]
-                position = positionList[i]
-                freqList = sampleFreqs[sample][gene]
-                freq = freqList[i]
-                #Check for CH variants in parents
-                if "0|1" in genotypes and "1|0" in genotypes and genotype in ["1|0", "0|1"] and gene not in chPositionDict[sample]:
-                    chPositionDict[sample][gene] = [position]
-                    chGenotypeDict[sample][gene] = [genotype]
-                    chFreqDict[sample][gene] = [freq]
-                elif "0|1" in genotypes and "1|0" in genotypes and genotype in ["1|0", "0|1"] and gene in chPositionDict[sample]:
-                    chPositionDict[sample][gene].append(position)
-                    chGenotypeDict[sample][gene].append(genotype)
-                    chFreqDict[sample][gene].append(freq)
+for patient in patientList:
+    chPositionDict[patient] = {}
+    chGenotypeDict[patient] = {}
+    chFreqDict[patient] = {}
+    parent1 = familyDict[patient][0]
+    parent2 = familyDict[patient][1]
+    for gene, genotypes in sampleGenotype[patient].items():
+        for i, genotype in enumerate(genotypes):
+            positionList = samplePositions[patient][gene]
+            position = positionList[i]
+            freqList = sampleFreqs[patient][gene]
+            freq = freqList[i]
+            #This part helps eliminate genotypes being added to the CH list where either parent is homozygous recessive
+            parentGenotype1 = ""
+            parentGenotype2 = ""
+            if gene in samplePositions[parent1] and position in samplePositions[parent1][gene]:
+                parentPosIndex = samplePositions[parent1][gene].index(position)
+                parentGenotype1 = sampleGenotype[parent1][gene][parentPosIndex]
+            if gene in samplePositions[parent2] and position in samplePositions[parent2][gene]:
+                parentPosIndex = samplePositions[parent2][gene].index(position)
+                parentGenotype2 = sampleGenotype[parent2][gene][parentPosIndex]
+            if parentGenotype1 in ["1|1", "2|2", "3|3", "1/1", "2/2", "3/3"] or parentGenotype2 in ["1|1", "2|2", "3|3", "1/1", "2/2", "3/3"]:
+                continue
+            if ("0|1" in genotypes or "0|2" in genotypes or "0|3" in genotypes) and ("1|0" in genotypes or "2|0" in genotypes or "3|0" in genotypes) and genotype in ["1|0", "0|1", "2|0", "0|2", "3|0", "0|3"] and gene not in chPositionDict[patient]:
+                chPositionDict[patient][gene] = [position]
+                chGenotypeDict[patient][gene] = [genotype]
+                chFreqDict[patient][gene] = [freq]
+            elif ("0|1" in genotypes or "0|2" in genotypes or "0|3" in genotypes) and ("1|0" in genotypes or "2|0" in genotypes or "3|0" in genotypes) and genotype in ["1|0", "0|1", "2|0", "0|2", "3|0", "0|3"] and gene in chPositionDict[patient]:
+                chPositionDict[patient][gene].append(position)
+                chGenotypeDict[patient][gene].append(genotype)
+                chFreqDict[patient][gene].append(freq)
+for sample in parentList:
+    chPositionDict[sample] = {}
+    chGenotypeDict[sample] = {}
+    chFreqDict[sample] = {}
+    for gene, genotypes in sampleGenotype[sample].items():
+        for i, genotype in enumerate(genotypes):
+            positionList = samplePositions[sample][gene]
+            position = positionList[i]
+            freqList = sampleFreqs[sample][gene]
+            freq = freqList[i]
+            #Check for CH variants in parents
+            if ((("0|1" in genotypes or "0|2" in genotypes or "0|3" in genotypes) and ("1|0" in genotypes or "2|0" in genotypes or "3|0" in genotypes) and genotype in ["1|0", "0|1", "2|0", "0|2", "3|0", "0|3"]) or "/" in genotype) and gene not in chPositionDict[sample]:
+                chPositionDict[sample][gene] = [position]
+                chGenotypeDict[sample][gene] = [genotype]
+                chFreqDict[sample][gene] = [freq]
+            elif ((("0|1" in genotypes or "0|2" in genotypes or "0|3" in genotypes) and ("1|0" in genotypes or "2|0" in genotypes or "3|0" in genotypes) and genotype in ["1|0", "0|1", "2|0", "0|2", "3|0", "0|3"]) or "/" in genotype) and gene in chPositionDict[sample]:
+                chPositionDict[sample][gene].append(position)
+                chGenotypeDict[sample][gene].append(genotype)
+                chFreqDict[sample][gene].append(freq)
 print("CH variant dictionaries created.")
 
 #Iterate through the input file and use the chPositionDict in order to output CH variant data for each sample
@@ -342,54 +344,33 @@ with open(geminiTsv) as geminiFile, open(outputFile, "w") as outputFile:
     columnInfo = headerList[0:15]
     newHeader = "\t".join(columnInfo) + "\tgenotype\tsample\n"
     outputFile.write(newHeader)
-    if familyFile is not None:
-            sampleIndexes = []
-            for patient in patientList:
-                patientIndex = headerList.index(patient)
-                sampleIndexes.append(patientIndex)
-            for line in geminiFile:
-                lineList = line.rstrip("\n").split("\t")
-                start, gene, ref, alt, impact, cadd, af_1k, af_gnomAD, lof, exonic = getLineInfo(lineList)
-                # Only write CH variants that are unique to the sample and not those that are in common with either parent
-                for sampleIndex in sampleIndexes:
-                    sample = headerList[sampleIndex]
-                    parent1 = familyDict[sample][0]
-                    parent2 = familyDict[sample][1]
-                    if gene in chPositionDict[sample]:
-                        if gene in chPositionDict[parent1] and chPositionDict[parent1][gene] == chPositionDict[sample][gene]:
-                            continue
-                        elif gene in chPositionDict[parent2] and chPositionDict[parent2][gene] == chPositionDict[sample][gene]:
-                            continue
-                        elif start in chPositionDict[sample][gene] and len(chPositionDict[sample][gene]) >= 2:
-                            freqBelowCutoff = False
-                            for freq in chFreqDict[sample][gene]:
-                                if freq != "None" and float(freq) <= inputAF:
-                                    freqBelowCutoff = True
-                                    break
-                            if freqBelowCutoff == True:
-                                genotype = lineList[sampleIndex]
-                                numericGenotype = getNumericGenotype(genotype, ref, alt)
-                                if "." not in numericGenotype and numericGenotype in ["1|0", "0|1"]:
-                                    columnInfo = lineList[0:15]
-                                    columnStr = "\t".join(columnInfo)
-                                    newLine = f"{columnStr}\t{numericGenotype}\t{sample.replace('gts.', '')}\n"
-                                    outputFile.write(newLine)
-    else:
-        for line in geminiFile:
-            lineList = line.rstrip("\n").split("\t")
-            start, gene, ref, alt, impact, cadd, af_1k, af_gnomAD, lof, exonic = getLineInfo(lineList)
-            for sampleIndex in sampleIndexes:
-                sample = headerList[sampleIndex]
-                if gene in chPositionDict[sample] and start in chPositionDict[sample][gene] and len(chPositionDict[sample][gene]) >= 2:
+    sampleIndexes = []
+    for patient in patientList:
+        patientIndex = headerList.index(patient)
+        sampleIndexes.append(patientIndex)
+    for line in geminiFile:
+        lineList = line.rstrip("\n").split("\t")
+        start, gene, ref, alt, impact, cadd, af_1k, af_gnomAD, lof, exonic = getLineInfo(lineList)
+        # Only write CH variants that are unique to the sample and not those that are in common with either parent
+        for sampleIndex in sampleIndexes:
+            sample = headerList[sampleIndex]
+            parent1 = familyDict[sample][0]
+            parent2 = familyDict[sample][1]
+            if gene in chPositionDict[sample]:
+                if gene in chPositionDict[parent1] and chPositionDict[parent1][gene] == chPositionDict[sample][gene]:
+                    continue
+                elif gene in chPositionDict[parent2] and chPositionDict[parent2][gene] == chPositionDict[sample][gene]:
+                    continue
+                elif start in chPositionDict[sample][gene] and len(chPositionDict[sample][gene]) >= 2:
                     freqBelowCutoff = False
                     for freq in chFreqDict[sample][gene]:
-                        if float(freq) <= inputAF:
+                        if freq != "None" and float(freq) <= inputAF:
                             freqBelowCutoff = True
                             break
                     if freqBelowCutoff == True:
                         genotype = lineList[sampleIndex]
                         numericGenotype = getNumericGenotype(genotype, ref, alt)
-                        if "." not in numericGenotype and numericGenotype in ["1|0", "0|1"]:
+                        if "." not in numericGenotype and numericGenotype in ["1|0", "0|1", "2|0", "0|2", "3|0", "0|3"]:
                             columnInfo = lineList[0:15]
                             columnStr = "\t".join(columnInfo)
                             newLine = f"{columnStr}\t{numericGenotype}\t{sample.replace('gts.', '')}\n"
