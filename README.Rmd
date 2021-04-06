@@ -3,8 +3,8 @@ title: Analysis of three nuclear families with a single pediatric-cancer case us
 author: "Dustin Miller"
 date: "04/06/2021"
 output:
-  pdf_document: default
   html_document: default
+  pdf_document: default
 ---
 
 ```{r setup, include=FALSE}
