@@ -1,5 +1,5 @@
-Overview
-========
+Analysis of three nuclear families with a single pediatric-cancer case using linked-read whole genome sequencing
+================================================================================================================
 
 The scripts listed below were executed with the docker container
 [compound-het-vip](https://hub.docker.com/r/dmill903/compound-het-vip).
